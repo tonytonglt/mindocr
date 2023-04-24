@@ -2,6 +2,7 @@ from typing import List
 import os
 import multiprocessing
 import mindspore as ms
+import mindspore.dataset.vision as CV
 from addict import Dict
 import multiprocessing
 from .det_dataset import DetDataset, SynthTextDataset
@@ -113,6 +114,7 @@ def build_dataset(
 
     # TODO: find optimal setting automatically according to num of CPU cores
     num_workers = loader_config.get("num_workers", 8) # Number of subprocesses used to fetch the dataset/map data row/gen batch in parallel
+    print('num_workers', num_workers)
     cores = multiprocessing.cpu_count()
     num_devices = 1 if num_shards is None else num_shards
     if num_workers > int(cores / num_devices):
@@ -139,6 +141,15 @@ def build_dataset(
 
     # 2. data mapping using mindata C lib (optional)
     # ds = ds.map(operations=transform_list, input_columns=['image', 'label'], num_parallel_workers=8, python_multiprocessing=True)
+    trans_list = [CV.RandomColorAdjust(0.5, 0.5, 0.5, 0.25),
+                  CV.Rescale(1 / 255.0, 0),
+                  CV.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),  # (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
+                  CV.HWC2CHW()]
+    ds = ds.map(
+        operations=trans_list,
+        input_columns=["image"],
+        num_parallel_workers=8,
+        python_multiprocessing=True)
 
     # 3. create loader
     # get batch of dataset by collecting batch_size consecutive data rows and apply batch operations
@@ -154,7 +165,7 @@ def build_dataset(
     dataloader = ds.batch(
                     batch_size,
                     drop_remainder=drop_remainder,
-                    num_parallel_workers=min(num_workers, 2), # set small workers for lite computation. TODO: increase for batch-wise mapping
+                    num_parallel_workers=min(num_workers, 1), # set small workers for lite computation. TODO: increase for batch-wise mapping
                     #input_columns=input_columns,
                     #output_columns=batch_column,
                     #per_batch_map=per_batch_map, # uncommet to use inner-batch transformation

@@ -43,7 +43,7 @@ from mindocr.utils.loss_scaler import get_loss_scales
 
 def main(cfg):
     # init env
-    ms.set_context(mode=cfg.system.mode)
+    ms.set_context(mode=cfg.system.mode, device_id=7)
     if cfg.system.distribute:
         init()
         device_num = get_group_size()

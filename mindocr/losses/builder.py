@@ -1,10 +1,10 @@
 import inspect
-from .det_loss import L1BalancedCELoss
+from .det_loss import L1BalancedCELoss, EastLoss
 from .rec_loss import CTCLoss
 
 __all__ = ['build_loss']
 
-supported_losses = ['L1BalancedCELoss', 'CTCLoss']
+supported_losses = ['L1BalancedCELoss', 'CTCLoss', 'EastLoss']
 
 def build_loss(name, **kwargs):
     """
