@@ -6,7 +6,7 @@ import cv2
 import math
 import numpy as np
 
-__all__ = ['RecCTCLabelEncode', 'RecResizeImg']
+__all__ = ['RecCTCLabelEncode', 'RecResizeImg', 'SARLabelEncode', 'RobustScannerRecResizeImg']
 
 class RecCTCLabelEncode(object):
     ''' Convert text label (str) to a sequence of character indices according to the char dictionary
@@ -239,6 +239,156 @@ class RecResizeImg(object):
         data['image'] = norm_img
         data['valid_ratio'] = valid_ratio
         return data
+
+
+class SARLabelEncode(object):
+    """ Convert between text-label and text-index """
+
+    def __init__(self,
+                 max_text_length,
+                 character_dict_path=None,
+                 use_space_char=False,
+                 lower=False):
+        self.max_text_len = max_text_length
+        self.beg_str = "sos"
+        self.end_str = "eos"
+        self.lower = lower
+
+        if character_dict_path is None:
+            print("The character_dict_path is None, model can only recognize number and lower letters")
+            self.character_str = "0123456789abcdefghijklmnopqrstuvwxyz"
+            dict_character = list(self.character_str)
+            self.lower = True
+        else:
+            self.character_str = []
+            with open(character_dict_path, "rb") as fin:
+                lines = fin.readlines()
+                for line in lines:
+                    line = line.decode('utf-8').strip("\n").strip("\r\n")
+                    self.character_str.append(line)
+            if use_space_char:
+                self.character_str.append(" ")
+            dict_character = list(self.character_str)
+        dict_character = self.add_special_char(dict_character)
+        self.dict = {}
+        for i, char in enumerate(dict_character):
+            self.dict[char] = i
+        self.character = dict_character
+
+    def encode(self, text):
+        """convert text-label into text-index.
+        input:
+            text: text labels of each image. [batch_size]
+
+        output:
+            text: concatenated text index for CTCLoss.
+                    [sum(text_lengths)] = [text_index_0 + text_index_1 + ... + text_index_(n - 1)]
+            length: length of each text. [batch_size]
+        """
+        if len(text) == 0 or len(text) > self.max_text_len:
+            return None
+        if self.lower:
+            text = text.lower()
+        text_list = []
+        for char in text:
+            if char not in self.dict:
+                # logger = get_logger()
+                # logger.warning('{} is not in dict'.format(char))
+                continue
+            text_list.append(self.dict[char])
+        if len(text_list) == 0:
+            return None
+        return text_list
+
+    def add_special_char(self, dict_character):
+        beg_end_str = "<BOS/EOS>"
+        unknown_str = "<UKN>"
+        padding_str = "<PAD>"
+        dict_character = dict_character + [unknown_str]
+        self.unknown_idx = len(dict_character) - 1
+        dict_character = dict_character + [beg_end_str]
+        self.start_idx = len(dict_character) - 1
+        self.end_idx = len(dict_character) - 1
+        dict_character = dict_character + [padding_str]
+        self.padding_idx = len(dict_character) - 1
+
+        return dict_character
+
+    def __call__(self, data):
+        text = data['label']
+        text = self.encode(text)
+        if text is None:
+            return None
+        if len(text) >= self.max_text_len - 1:
+            return None
+        data['length'] = np.array(len(text))
+        target = [self.start_idx] + text + [self.end_idx]
+        padded_text = [self.padding_idx for _ in range(self.max_text_len)]
+
+        padded_text[:len(target)] = target
+        data['label'] = np.array(padded_text)
+        return data
+
+    def get_ignored_tokens(self):
+        return [self.padding_idx]
+
+
+class RobustScannerRecResizeImg(object):
+    def __init__(self,
+                 image_shape,
+                 max_text_length,
+                 width_downsample_ratio=0.25,
+                 **kwargs):
+        self.image_shape = image_shape
+        self.width_downsample_ratio = width_downsample_ratio
+        self.max_text_length = max_text_length
+
+    def __call__(self, data):
+        img = data['image']
+        norm_img, resize_shape, pad_shape, valid_ratio = resize_norm_img_sar(
+            img, self.image_shape, self.width_downsample_ratio)
+        word_positons = np.array(range(0, self.max_text_length)).astype('int64')
+        data['image'] = norm_img
+        data['resized_shape'] = resize_shape
+        data['pad_shape'] = pad_shape
+        data['valid_ratio'] = valid_ratio
+        data['word_positons'] = word_positons
+        return data
+
+
+def resize_norm_img_sar(img, image_shape, width_downsample_ratio=0.25):
+    imgC, imgH, imgW_min, imgW_max = image_shape
+    h = img.shape[0]
+    w = img.shape[1]
+    valid_ratio = 1.0
+    # make sure new_width is an integral multiple of width_divisor.
+    width_divisor = int(1 / width_downsample_ratio)
+    # resize
+    ratio = w / float(h)
+    resize_w = math.ceil(imgH * ratio)
+    if resize_w % width_divisor != 0:
+        resize_w = round(resize_w / width_divisor) * width_divisor
+    if imgW_min is not None:
+        resize_w = max(imgW_min, resize_w)
+    if imgW_max is not None:
+        valid_ratio = min(1.0, 1.0 * resize_w / imgW_max)
+        resize_w = min(imgW_max, resize_w)
+    resized_image = cv2.resize(img, (resize_w, imgH))
+    resized_image = resized_image.astype('float32')
+    # norm
+    if image_shape[0] == 1:
+        resized_image = resized_image / 255
+        resized_image = resized_image[np.newaxis, :]
+    else:
+        resized_image = resized_image.transpose((2, 0, 1)) / 255
+    resized_image -= 0.5
+    resized_image /= 0.5
+    resize_shape = resized_image.shape
+    padding_im = -1.0 * np.ones((imgC, imgH, imgW_max), dtype=np.float32)
+    padding_im[:, :, 0:resize_w] = resized_image
+    pad_shape = padding_im.shape
+
+    return padding_im, resize_shape, pad_shape, valid_ratio
 
 
 if __name__ == '__main__':
