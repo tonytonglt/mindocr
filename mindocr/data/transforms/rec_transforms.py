@@ -101,7 +101,7 @@ class RecCTCLabelEncode(object):
         # TODO: raname to char_indices
         data['text_seq'] = np.array(char_indices, dtype=np.int32)
         # 
-        data['text_length'] = len(data['label']) 
+        data['text_length'] = len(data['label'])
         data['text_padded'] = data['label'] + ' ' * (self.max_text_len - len(data['label']))
 
         return data
