@@ -3,9 +3,10 @@ from .det_db_head import DBHead
 from .rec_ctc_head import CTCHead
 from .rec_attn_head import AttentionHead
 from .det_east_head import EASTHead
+from .rec_robustscanner_head import RobustScannerHead
 
 __all__ = ['build_head']
-supported_heads = ['ConvHead', 'DBHead', 'CTCHead', 'AttentionHead', 'EASTHead']
+supported_heads = ['ConvHead', 'DBHead', 'CTCHead', 'AttentionHead', 'EASTHead', 'RobustScannerHead']
 
 
 def build_head(head_name, **kwargs):

@@ -318,11 +318,11 @@ class SARLabelEncode(object):
     """ Convert between text-label and text-index """
 
     def __init__(self,
-                 max_text_length,
+                 max_text_len,
                  character_dict_path=None,
                  use_space_char=False,
                  lower=False):
-        self.max_text_len = max_text_length
+        self.max_text_len = max_text_len
         self.beg_str = "sos"
         self.end_str = "eos"
         self.lower = lower
@@ -409,18 +409,18 @@ class SARLabelEncode(object):
 class RobustScannerRecResizeImg(object):
     def __init__(self,
                  image_shape,
-                 max_text_length,
+                 max_text_len,
                  width_downsample_ratio=0.25,
                  **kwargs):
         self.image_shape = image_shape
         self.width_downsample_ratio = width_downsample_ratio
-        self.max_text_length = max_text_length
+        self.max_text_len = max_text_len
 
     def __call__(self, data):
         img = data['image']
         norm_img, resize_shape, pad_shape, valid_ratio = resize_norm_img_sar(
             img, self.image_shape, self.width_downsample_ratio)
-        word_positons = np.array(range(0, self.max_text_length)).astype('int64')
+        word_positons = np.array(range(0, self.max_text_len)).astype('int64')
         data['image'] = norm_img
         data['resized_shape'] = resize_shape
         data['pad_shape'] = pad_shape

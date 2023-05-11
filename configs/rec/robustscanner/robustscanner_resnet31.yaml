@@ -48,7 +48,7 @@ model:
     mask: True
     padding_idx: 92
     encode_value: False
-    max_text_length: *max_text_len
+    max_text_len: *max_text_len
 
 postprocess:
   name: SARLabelDecode
@@ -98,10 +98,11 @@ train:
           img_mode: BGR
           to_float32: False
       - SARLabelEncode: # Class handling label
+          max_text_length: *max_text_len
       - RobustScannerRecResizeImg:
           image_shape: [ 3, 48, 48, 160 ] # h:48 w:[48,160]
           width_downsample_ratio: 0.25
-          max_text_length: *max_text_len
+          max_text_len: *max_text_len
 #      - NormalizeImage:  # different from paddle (paddle wrongly normalize BGR image with RGB mean/std from ImageNet for det, and simple rescale to [-1, 1] in rec.
 #          bgr_to_rgb: True
 #          is_hwc: True

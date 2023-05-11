@@ -127,7 +127,7 @@ class ResNet31(nn.Cell):
         self.bn5 = nn.BatchNorm2d(channels[5])
         self.relu5 = nn.ReLU()
 
-        self.out_channels = channels[-1]
+        self.out_channels = [channels[-1]]
 
     def _make_layer(self, input_channels, output_channels, blocks):
         layers = []
@@ -165,20 +165,21 @@ class ResNet31(nn.Cell):
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu2(x)
+        outs.append(x)
 
         x = self.pool3(x)
         x = self.block3(x)
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.relu3(x)
-
-        print(x)
+        outs.append(x)
 
         x = self.pool4(x)
         x = self.block4(x)
         x = self.conv4(x)
         x = self.bn4(x)
         x = self.relu4(x)
+        outs.append(x)
 
         if self.pool5 is not None:
             x = self.pool5(x)
@@ -205,4 +206,4 @@ class ResNet31(nn.Cell):
         #     outs.append(x)
 
         outs.append(x)
-        return x
+        return outs
