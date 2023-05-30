@@ -46,7 +46,8 @@ class NetWithLossWrapper(nn.Cell):
         if self.label_indices is None:
             loss_val = self._loss_fn(pred, *args[1:])
         else:
-            loss_val = self._loss_fn(pred, *select_inputs_by_indices(args, self.label_indices))
+            label = select_inputs_by_indices(args, self.label_indices)
+            loss_val = self._loss_fn(pred, label)
 
         return loss_val
 

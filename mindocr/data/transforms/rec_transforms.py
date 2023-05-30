@@ -425,7 +425,7 @@ class RobustScannerRecResizeImg(object):
         data['resized_shape'] = resize_shape
         data['pad_shape'] = pad_shape
         data['valid_ratio'] = valid_ratio
-        data['word_positons'] = word_positons
+        data['word_positions'] = word_positons
         return data
 
 

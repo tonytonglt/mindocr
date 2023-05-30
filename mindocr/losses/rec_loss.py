@@ -84,28 +84,29 @@ class SARLoss(nn.Cell):
         predict = predicts[:, :
                            -1, :]  # ignore last index of outputs to be in same seq_len with targets
         label = batch[1].astype(
-            "int64")[:, 1:]  # ignore first index of target in loss calculation
+            "int32")[:, 1:]  # ignore first index of target in loss calculation
         batch_size, num_steps, num_classes = predict.shape[0], predict.shape[
             1], predict.shape[2]
         assert len(label.shape) == len(list(predict.shape)) - 1, \
             "The target's shape and inputs's shape is [N, d] and [N, num_steps]"
 
-        inputs = ops.reshape(predict, [-1, num_classes])
-        targets = ops.reshape(label, [-1])
+        inputs = ops.reshape(predict, (-1, num_classes))
+        targets = ops.reshape(label, (-1,))
         loss = self.loss_func(inputs, targets)
-        return {'loss': loss}
+        # print('loss', loss)
+        return loss
 
 
 if __name__ == '__main__':
-    max_text_length = 23
+    max_text_len = 23
     nc = 26
     bs = 32
     pred_seq_len  = 24
 
-    loss_fn = CTCLoss(pred_seq_len, max_text_length, bs)
+    loss_fn = CTCLoss(pred_seq_len, max_text_len, bs)
 
     x = ms.Tensor(np.random.rand(pred_seq_len, bs, nc), dtype=ms.float32)
-    label = ms.Tensor(np.random.randint(0, nc,  size=(bs, max_text_length)), dtype=ms.int32)
+    label = ms.Tensor(np.random.randint(0, nc,  size=(bs, max_text_len)), dtype=ms.int32)
 
     loss = loss_fn(x, label)
     print(loss)

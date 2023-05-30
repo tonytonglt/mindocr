@@ -240,6 +240,10 @@ class EvalSaveCallback(Callback):
             per_step_time = (time.time() - self.step_start_time) * 1000 / self.log_interval
             fps = self.batch_size * 1000 / per_step_time
             loss = self._losses[-1].asnumpy()
+
+            cur_lr = float(cur_lr)
+            loss = float(loss)
+
             msg = f"epoch: [{cur_epoch}/{cb_params.epoch_num}] step: [{cur_step_in_epoch}/{cb_params.batch_num}], " \
                   f"loss: {loss:.6f}, lr: {cur_lr:.6f}, per step time: {per_step_time:.3f} ms, fps: {fps:.2f} img/s"
             self.logger(msg)

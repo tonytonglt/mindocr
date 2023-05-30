@@ -79,6 +79,8 @@ class RecMetric(nn.Metric):
         if len(inputs) != 2:
             raise ValueError('Length of inputs should be 2')
         preds, gt = inputs
+        print('preds', preds)
+        print('gt', gt)
         pred_texts = preds['texts']
         #pred_confs = preds['confs']
         #print('pred: ', pred_texts, len(pred_texts))

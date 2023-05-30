@@ -65,21 +65,27 @@ class DotProductAttentionLayer(nn.Cell):
 
         self.transpose = ops.Transpose()
         self.matmul = ops.MatMul()
-        self.softmax = ops.Softmax(axis=1)
+        self.batchmatmul = ops.BatchMatMul()
+        self.softmax = ops.Softmax(axis=2)
 
     def construct(self, query, key, value, h, w, valid_ratios=None):
         query = self.transpose(query, (0, 2, 1))
-        logits = self.matmul(query, key) * self.scale
+        # logits = self.matmul(query, key) * self.scale
+        logits = self.batchmatmul(query, key) * self.scale
 
         n, c, t = logits.shape
         # reshape to (n, c, h, w)
         logits = logits.view((n, c, h, w))
         if valid_ratios is not None:
             # cal mask of attention weight
+            # print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', valid_ratios)
+            # print(type(valid_ratios))
+            valid_ratios = valid_ratios.asnumpy()
             for i, valid_ratio in enumerate(valid_ratios):
                 valid_width = min(w, int(w * valid_ratio + 0.5))
                 if valid_width < w:
                     logits[i, :, :, valid_width:] = float('-inf')
+
 
         # reshape to (n, c, h, w)
         logits = logits.view((n, c, t))
@@ -88,7 +94,7 @@ class DotProductAttentionLayer(nn.Cell):
         weights = self.softmax(logits)
 
         value = self.transpose(value, (0, 2, 1))
-        glimpse = self.matmul(weights, value)
+        glimpse = self.batchmatmul(weights, value)
         glimpse = self.transpose(glimpse, (0, 2, 1))
         return glimpse
 
@@ -127,7 +133,7 @@ class SequenceAttentionDecoder(BaseDecoder):
                  start_idx=0,
                  mask=True,
                  padding_idx=None,
-                 dropout=0,
+                 dropout=0.,
                  return_feature=False,
                  encode_value=False):
         super().__init__()
@@ -145,7 +151,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         self.ones = ops.Ones()
         self.argmax = ops.ArgMaxWithValue(axis=1)
         self.stack = ops.Stack()
-        self.softmax = ops.Softmax(axis=-2)
+        self.softmax = ops.Softmax(axis=-1)
 
         # 此处差别较大 ！！！
         # 参考https://www.mindspore.cn/docs/zh-CN/r1.9/note/api_mapping/pytorch_diff/nn_Embedding.html
@@ -156,7 +162,6 @@ class SequenceAttentionDecoder(BaseDecoder):
             input_size=dim_model,
             hidden_size=dim_model,
             num_layers=rnn_layers,
-            time_major=False,
             dropout=dropout)
 
         self.attention_layer = DotProductAttentionLayer()
@@ -290,7 +295,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         return out
 
 
-class PositionAwareLayer(nn.Layer):
+class PositionAwareLayer(nn.Cell):
 
     def __init__(self, dim_model, rnn_layers=2):
         super().__init__()
@@ -302,15 +307,14 @@ class PositionAwareLayer(nn.Layer):
         self.rnn = nn.LSTM(
             input_size=dim_model,
             hidden_size=dim_model,
-            num_layers=rnn_layers,
-            time_major=False)
+            num_layers=rnn_layers)
 
         self.mixer = nn.SequentialCell(
             nn.Conv2d(
-                dim_model, dim_model, kernel_size=3, stride=1, padding=1),
+                dim_model, dim_model, kernel_size=3, stride=1, padding=1, pad_mode='pad'),
             nn.ReLU(),
             nn.Conv2d(
-                dim_model, dim_model, kernel_size=3, stride=1, padding=1))
+                dim_model, dim_model, kernel_size=3, stride=1, padding=1, pad_mode='pad'))
 
     def construct(self, img_feature):
         n, c, h, w = img_feature.shape
@@ -555,7 +559,7 @@ class RobustScannerDecoder(BaseDecoder):
                  dim_input=512,
                  dim_model=128,
                  hybrid_decoder_rnn_layers=2,
-                 hybrid_decoder_dropout=0,
+                 hybrid_decoder_dropout=0.,
                  position_decoder_rnn_layers=2,
                  max_seq_len=40,
                  start_idx=0,
@@ -573,7 +577,7 @@ class RobustScannerDecoder(BaseDecoder):
         self.mask = mask
 
         self.ones = ops.Ones()
-        self.softmax = ops.Softmax(axis=-2)
+        self.softmax = ops.Softmax(axis=-1)
         self.argmax = ops.ArgMaxWithValue(axis=1)
         self.stack = ops.Stack(axis=1)
 
@@ -686,7 +690,7 @@ class RobustScannerHead(nn.Cell):
                  in_channels,
                  enc_outchannles=128,
                  hybrid_dec_rnn_layers=2,
-                 hybrid_dec_dropout=0,
+                 hybrid_dec_dropout=0.,
                  position_dec_rnn_layers=2,
                  start_idx=0,
                  max_seq_len=40,
@@ -731,7 +735,7 @@ class RobustScannerHead(nn.Cell):
             label = Tensor(label, dtype=mstype.int64)
             final_out = self.decoder(
                 inputs, out_enc, label, valid_ratios, word_positions)
-        if not self.training:
+        else:
             final_out = self.decoder(
                 inputs,
                 out_enc,

@@ -328,21 +328,26 @@ class SARLabelDecode(object):
                 comp = re.compile('[^A-Z^a-z^0-9^\u4e00-\u9fa5]')
                 text = text.lower()
                 text = comp.sub('', text)
-            result_list.append((text, np.mean(conf_list).tolist()))
+            # result_list.append((text, np.mean(conf_list).tolist()))
+            result_list.append(text)
         return result_list
 
     def __call__(self, preds, label=None, *args, **kwargs):
         if isinstance(preds, ms.Tensor):
-            preds = preds.numpy()
+            preds = preds.asnumpy()
         preds_idx = preds.argmax(axis=2)
         preds_prob = preds.max(axis=2)
 
         text = self.decode(preds_idx, preds_prob, is_remove_duplicate=False)
-
+        print('text', text)
+        print(label)
         if label is None:
-            return text
+            return {'texts': text}
         label = self.decode(label, is_remove_duplicate=False)
-        return text, label
+        print(text)
+        print(label)
+        pred = {'texts': text, 'labels': label}
+        return pred
 
     def get_ignored_tokens(self):
         return [self.padding_idx]
