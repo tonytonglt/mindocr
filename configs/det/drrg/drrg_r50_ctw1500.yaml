@@ -1,9 +1,9 @@
 system:
-  mode: 0 # 0 for graph mode, 1 for pynative mode in MindSpore
+  mode: 1 # 0 for graph mode, 1 for pynative mode in MindSpore
   distribute: False
   amp_level: 'O0'
   seed: 42
-  log_interval: 10
+  log_interval: 1
   val_while_train: True
   drop_overflow_update: False
 
@@ -14,34 +14,26 @@ model:
     name: det_resnet50
     pretrained: True
   neck:
-    name: DBFPN
-    out_channels: 256
-    bias: False
+    name: DRRGFPN
+#    in_channels: [ 256, 512, 1024, 2048 ]
+#    out_channels: 32
+    out_channels: 128
   head:
-    name: DBHead
-    k: 50
-    bias: False
-    adaptive: True
-  pretrained: https://download.mindspore.cn/toolkits/mindocr/dbnet/dbnet_resnet50_synthtext-40655acb.ckpt
+    name: DRRGHead
+#    in_channels: 32
+    text_region_thr: 0.3
+    center_region_thr: 0.4
 
 postprocess:
-  name: DBPostprocess
-  box_type: poly          # whether to output a polygon or a box
-  binary_thresh: 0.3      # binarization threshold
-  box_thresh: 0.6         # box score threshold
-  max_candidates: 1000
-  expand_ratio: 1.5       # coefficient for expanding predictions
+  name: DRRGPostprocess
+  link_thr: 0.8
 
 metric:
   name: DetMetric
   main_indicator: f-score
 
 loss:
-  name: L1BalancedCELoss
-  eps: 1.0e-6
-  l1_scale: 10
-  bce_scale: 5
-  bce_replace: bceloss
+  name: DRRGLoss
 
 scheduler:
   scheduler: polynomial_decay
@@ -68,36 +60,39 @@ train:
   dataset_sink_mode: True
   dataset:
     type: DetDataset
-    dataset_root: /home/lihaoyang/tongli/data/ctw1500/
-    data_dir: ctw1500/train_images
-    label_file: ctw1500/train_det_gt.txt
+    dataset_root: /home/lihaoyang/tongli/data/ctw1500
+    data_dir: train_images
+    label_file: train_det_gt.txt
     sample_ratio: 1.0
     transform_pipeline:
       - DecodeImage:
           img_mode: RGB
           to_float32: False
       - DetLabelEncode:
-      - RandomColorAdjust:
-          brightness: 0.1255  # 32.0 / 255
+      - ColorJitter:
+          brightness: 0.12549019607843137
           saturation: 0.5
+      - RandomScaling:
+      - RandomCropFlip:
+          crop_ratio: 0.5
+      - RandomCropPolyInstances:
+          crop_ratio: 0.8
+          min_side_ratio: 0.3
+      - RandomRotatePolyInstances:
+          rotate_ratio: 0.5
+          max_angle: 60
+          pad_with_fixed_color: False
+      - SquareResizePad:
+          target_size: 800
+          pad_ratio: 0.6
       - IaaAugment:
           Fliplr: { p: 0.5 }
-      - RandomScale:
-          scale_range: [ 0.5, 3.0 ]
-          p: 1.0
       - RandomCropWithBBox:
           max_tries: 10
           min_crop_ratio: 0.1
           crop_size: [ 640, 640 ]
           p: 1.0
-      - ValidatePolygons:
-      - ShrinkBinaryMap:
-          min_text_size: 8
-          shrink_ratio: 0.55
-      - BorderMap:
-          shrink_ratio: 0.4
-          thresh_min: 0.3
-          thresh_max: 0.7
+      - DRRGTargets:
       - NormalizeImage:
           bgr_to_rgb: False
           is_hwc: True
@@ -105,25 +100,27 @@ train:
           std: imagenet
       - ToCHWImage:
     #  the order of the dataloader list, matching the network input and the input labels for the loss function, and optional data for debug/visualize
-    output_columns: [ 'image', 'binary_map', 'mask', 'thresh_map', 'thresh_mask' ] #'img_path']
+    output_columns: ['image', 'gt_text_mask', 'gt_center_region_mask', 'gt_mask',
+            'gt_top_height_map', 'gt_bot_height_map', 'gt_sin_map',
+            'gt_cos_map', 'gt_comp_attribs']
 #    output_columns: ['image'] # for debug op performance
-    net_input_column_index: [0] # input indices for network forward func in output_columns
-    label_column_index: [1, 2, 3, 4] # input indices marked as label
+    net_input_column_index: [0, 8] # input indices for network forward func in output_columns
+    label_column_index: [1, 2, 3, 4, 5, 6, 7, 8] # input indices marked as label
 
   loader:
     shuffle: True
     batch_size: 20
     drop_remainder: True
-    num_workers: 20
+    num_workers: 1
 
 eval:
   ckpt_load_path: tmp_det/best.ckpt
   dataset_sink_mode: False
   dataset:
     type: DetDataset
-    dataset_root: /data/ocr_datasets
-    data_dir: ctw1500/test_images
-    label_file: ctw1500/test_det_gt.txt
+    dataset_root: /home/lihaoyang/tongli/data/ctw1500
+    data_dir: test_images
+    label_file: test_det_gt.txt
     sample_ratio: 1.0
     transform_pipeline:
       - DecodeImage:

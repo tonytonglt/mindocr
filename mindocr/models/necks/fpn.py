@@ -224,3 +224,50 @@ class EASTFPN(nn.Cell):
 
         out = self.relu7(self.bn7(self.conv7(out)))
         return out
+
+
+class UpBlock(nn.Cell):
+
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv1x1 = nn.Conv2d(in_channels, in_channels, kernel_size=1, stride=1, padding=0, pad_mode='pad')
+        self.conv3x3 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1, pad_mode='pad')
+        self.deconv = nn.Conv2dTranspose(out_channels, out_channels, kernel_size=4, stride=2, padding=1,
+                                         pad_mode='pad')
+        self.relu = nn.ReLU()
+
+    def construct(self, upsampled, shortcut):
+        x = ops.concat((upsampled, shortcut), 1)
+        x = self.conv1x1(x)
+        x = self.relu(x)
+        x = self.conv3x3(x)
+        x = self.relu(x)
+        x = self.deconv(x)
+        return x
+
+class DRRGFPN(nn.Cell):
+
+    def __init__(self, in_channels, out_channels=128):
+        super().__init__()
+        self.out_channels = out_channels
+        self.relu = nn.ReLU()
+
+        self.deconv4 = nn.Conv2dTranspose(2048, 1024, kernel_size=4, stride=2, padding=1, pad_mode='pad')
+        self.merge3 = UpBlock(1024 + 1024, 512)
+        self.merge2 = UpBlock(512 + 512, 256)
+        self.merge1 = UpBlock(256 + 256, 128)
+
+    def construct(self, features):
+        C1, C2, C3, C4 = features  # [256, 512, 1024, 2048]
+        up4 = self.deconv4(C4)
+        up4 = self.relu(up4)
+
+        up3 = self.merge3(C3, up4)
+        up3 = self.relu(up3)
+
+        up2 = self.merge2(C2, up3)
+        up2 = self.relu(up2)
+
+        up1 = self.merge1(C1, up2)
+
+        return up1

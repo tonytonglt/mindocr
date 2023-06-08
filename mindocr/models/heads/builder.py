@@ -1,13 +1,14 @@
 from .conv_head import ConvHead
 from .det_db_head import DBHead
 from .det_east_head import EASTHead
+from .det_drrg_head import DRRGHead
 from .det_pse_head import PSEHead
 from .rec_ctc_head import CTCHead
 from .rec_attn_head import AttentionHead
 
 
 __all__ = ['build_head']
-supported_heads = ['ConvHead', 'DBHead', 'EASTHead', 'CTCHead', 'PSEHead', 'AttentionHead']
+supported_heads = ['ConvHead', 'DBHead', 'EASTHead', 'CTCHead', 'PSEHead', 'AttentionHead', 'DRRGHead']
 
 
 def build_head(head_name, **kwargs):

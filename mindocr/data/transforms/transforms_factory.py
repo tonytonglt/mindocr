@@ -10,6 +10,7 @@ from .rec_transforms import *
 from .iaa_augment import *
 from .svtr_transform import *
 from .det_east_transforms import *
+from .det_drrg_transforms import *
 
 __all__ = ['create_transforms', 'run_transforms', 'transforms_dbnet_icdar15']
 
