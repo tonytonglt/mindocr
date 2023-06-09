@@ -21,7 +21,7 @@ class BaseDecoder(nn.Cell):
                   valid_ratios=None,
                   word_positions=None,
                   train_mode=True):
-        self.train_mode = train_mode
+        # self.train_mode = train_mode
 
         if train_mode:
             return self.forward_train(feat, out_enc, label, valid_ratios, word_positions)
@@ -308,6 +308,9 @@ class PositionAwareLayer(nn.Cell):
             input_size=dim_model,
             hidden_size=dim_model,
             num_layers=rnn_layers)
+        import mindspore as ms
+        t = Tensor(shape=[None, None, 128], dtype=ms.float32)
+        self.rnn.set_inputs(t)
 
         self.mixer = nn.SequentialCell(
             nn.Conv2d(
@@ -318,11 +321,12 @@ class PositionAwareLayer(nn.Cell):
 
     def construct(self, img_feature):
         n, c, h, w = img_feature.shape
-
-        rnn_input = self.transpose(img_feature, (0, 2, 3, 1))
-        rnn_input = rnn_input.view((n * h, w, c))
-        rnn_output, _ = self.rnn(rnn_input)
-        rnn_output = rnn_output.view((n, h, w, c))
+        rnn_input = ops.transpose(img_feature, (0, 2, 3, 1))
+        rnn_input = ops.reshape(rnn_input, (n * h, w, c))
+        print('shape', rnn_input.shape)
+        rnn_output = self.rnn(rnn_input)
+        # print('!!!!!!!!!!!!!!!!!!!!!', rnn_output)
+        rnn_output = ops.reshape(rnn_output, (n, h, w, c))
         rnn_output = self.transpose(rnn_output, (0, 3, 1, 2))
 
         out = self.mixer(rnn_output)

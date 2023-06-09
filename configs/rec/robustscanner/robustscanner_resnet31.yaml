@@ -1,6 +1,6 @@
 system:
   mode: 1 # 0 for graph mode, 1 for pynative mode in MindSpore
-  distribute: True
+  distribute: False
   amp_level: 'O0'
   seed: 42
   log_interval: 100
@@ -13,7 +13,7 @@ common:
   max_text_len: &max_text_len 40
   infer_mode: &infer_mode False
   use_space_char: &use_space_char False
-  batch_size: &batch_size 256
+  batch_size: &batch_size 128
 
 #model:
 #  type: rec
@@ -88,7 +88,7 @@ train:
   dataset_sink_mode: False
   dataset:
     type: LMDBDataset
-    dataset_root: /home/tongli/data/lmdb/data_lmdb_release/ # Optional, if set, dataset_root will be used as a prefix for data_dir
+    dataset_root: /home/group1/katekong/datasets/data_lmdb_release/ # Optional, if set, dataset_root will be used as a prefix for data_dir
     data_dir: training/
     # label_files: # not required when using LMDBDataset
     sample_ratio: 1.0
@@ -127,7 +127,7 @@ eval:
   dataset_sink_mode: False
   dataset:
     type: LMDBDataset
-    dataset_root: /home/tongli/data/lmdb/data_lmdb_release/
+    dataset_root: /home/group1/katekong/datasets/data_lmdb_release/
     data_dir: validation/
     # label_files: # not required when using LMDBDataset
     sample_ratio: 1.0

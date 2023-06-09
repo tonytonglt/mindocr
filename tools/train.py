@@ -45,7 +45,7 @@ from mindocr.utils.ema import EMA
 
 def main(cfg):
     # init env
-    ms.set_context(mode=cfg.system.mode, device_id=7)
+    ms.set_context(mode=cfg.system.mode, device_id=5) #, save_graphs=True, save_graphs_path='/home/lihaoyang/tongli/mindocr_robustscanner_dev_clone/graphs/')
     if cfg.system.distribute:
         init()
         device_num = get_group_size()
