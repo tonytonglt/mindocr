@@ -85,6 +85,7 @@ class BasicBlock(nn.Cell):
             short = self.short(x)
         y = short + conv1
         y = self.relu(y)
+        print(y.shape)
         return y
 
 

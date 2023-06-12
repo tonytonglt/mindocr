@@ -2,6 +2,7 @@ from mindspore import nn, Tensor, context
 import mindspore.common.dtype as mstype
 import mindspore.ops as ops
 import mindspore.numpy as np
+import mindspore as ms
 
 
 class BaseDecoder(nn.Cell):
@@ -677,7 +678,13 @@ class RobustScannerDecoder(BaseDecoder):
             outputs.append(char_out)
             max_idx, _ = self.argmax(char_out)
             if i < seq_len - 1:
+                decode_sequence = ops.cast(decode_sequence, ms.int8)
+                # print('!!!!!!!!!!!!!!!!', decode_sequence.dtype)
+                # print('!!!!!!!!!!!!!!!!', max_idx.dtype)
+                max_idx = ops.cast(max_idx, ms.int8)
+                # print('!!!!!!!!!!!!!!!!', max_idx.dtype)
                 decode_sequence[:, i + 1] = max_idx
+                decode_sequence = ops.cast(decode_sequence, ms.int64)
 
         outputs = self.stack(outputs)
 

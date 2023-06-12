@@ -13,7 +13,7 @@ common:
   max_text_len: &max_text_len 40
   infer_mode: &infer_mode False
   use_space_char: &use_space_char False
-  batch_size: &batch_size 256
+  batch_size: &batch_size 128
 
 #model:
 #  type: rec
@@ -84,7 +84,7 @@ loss_scaler:
   loss_scale: 512
 
 train:
-  ckpt_save_dir: './robustscanner_exp/robustscanner_test'
+  ckpt_save_dir: './robustscanner_exp/robustscanner_8p_O0_try14'
   dataset_sink_mode: False
   dataset:
     type: LMDBDataset
@@ -123,7 +123,7 @@ train:
       num_workers: 8
 
 eval:
-  ckpt_load_path: './robustscanner_exp/robustscanner_test/best.ckpt'
+  ckpt_load_path: './robustscanner_exp/robustscanner_8p_O0_try14 /best.ckpt'
   dataset_sink_mode: False
   dataset:
     type: LMDBDataset

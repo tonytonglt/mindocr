@@ -1,4 +1,4 @@
-from mindspore import nn
+from mindspore import nn, ms_function
 
 from ._registry import register_backbone_class
 
@@ -17,7 +17,7 @@ def conv3x3(in_channel, out_channel, stride=1):
 class BasicBlock(nn.Cell):
     expansion = 1
 
-    def __init__(self, in_channels, channels, stride=1, downsample=False):
+    def __init__(self, in_channels, channels, stride=1, is_downsample=False):
         super().__init__()
         self.conv1 = conv3x3(in_channels, channels, stride)
         # 与pytorch中的momentum是1-momentum的关系
@@ -25,8 +25,8 @@ class BasicBlock(nn.Cell):
         self.relu = nn.ReLU()
         self.conv2 = conv3x3(channels, channels)
         self.bn2 = nn.BatchNorm2d(channels)
-        self.downsample = downsample
-        if downsample:
+        self.is_downsample = is_downsample
+        if is_downsample:
             self.downsample = nn.SequentialCell(
                 nn.Conv2d(
                     in_channels,
@@ -48,7 +48,7 @@ class BasicBlock(nn.Cell):
         out = self.conv2(out)
         out = self.bn2(out)
 
-        if self.downsample:
+        if self.is_downsample:
             residual = self.downsample(x)
 
         out += residual
@@ -132,23 +132,18 @@ class ResNet31(nn.Cell):
     def _make_layer(self, input_channels, output_channels, blocks):
         layers = []
         for _ in range(blocks):
-            downsample = None
+            is_downsample = False
             if input_channels != output_channels:
-                downsample = nn.SequentialCell(
-                    nn.Conv2d(
-                        input_channels,
-                        output_channels,
-                        kernel_size=1,
-                        stride=1),
-                    nn.BatchNorm2d(output_channels))
+                is_downsample = True
 
             layers.append(
                 BasicBlock(
-                    input_channels, output_channels, downsample=downsample))
+                    input_channels, output_channels, is_downsample=is_downsample))
             input_channels = output_channels
 
         return nn.SequentialCell(layers)
 
+    @ms_function
     def construct(self, x):
         x = self.conv1_1(x)
         x = self.bn1_1(x)
