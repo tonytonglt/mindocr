@@ -22,7 +22,7 @@ class BaseDecoder(nn.Cell):
                   valid_ratios=None,
                   word_positions=None,
                   train_mode=True):
-        self.train_mode = train_mode
+        # self.train_mode = train_mode
 
         if train_mode:
             return self.forward_train(feat, out_enc, label, valid_ratios, word_positions)
@@ -725,10 +725,12 @@ class RobustScannerHead(nn.Cell):
             padding_idx=padding_idx,
             encode_value=encode_value)
 
-    def construct(self, inputs, targets=None):
+    def construct(self, inputs, targets):
         '''
         img_metas: [label, valid_ratio, word_positions]
         '''
+        # print(type(inputs))
+        # print("!!!!!!!!!!!!!!!!!!!!!", inputs.shape)
         out_enc = self.encoder(inputs)  # bsz c
         # others = targets[-2:]
         valid_ratios = None

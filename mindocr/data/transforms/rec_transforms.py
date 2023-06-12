@@ -103,6 +103,7 @@ class RecCTCLabelEncode(object):
         # 
         data['text_length'] = len(data['label'])
         data['text_padded'] = data['label'] + ' ' * (self.max_text_len - len(data['label']))
+        data['word_positions'] = np.array(range(0, self.max_text_len)).astype('int64')
 
         return data
 
