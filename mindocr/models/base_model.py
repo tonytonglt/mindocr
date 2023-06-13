@@ -41,12 +41,12 @@ class BaseModel(nn.Cell):
         # TODO: return bout, hout for debugging, using a dict.
         bout = self.backbone(x)
 
-        nout = self.neck(bout)
+        # nout = self.neck(bout)
 
         if y is not None:
-            hout = self.head(nout, (y, z, a))
+            hout = self.head(bout, (y, z, a))
         else:
-            hout = self.head(nout)
+            hout = self.head(bout)
 
         # resize back for postprocess
         #y = F.interpolate(y, size=(H, W), mode='bilinear', align_corners=True)

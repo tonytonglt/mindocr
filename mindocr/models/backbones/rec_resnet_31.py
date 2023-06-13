@@ -201,4 +201,4 @@ class ResNet31(nn.Cell):
         #     outs.append(x)
 
         outs.append(x)
-        return outs
+        return x

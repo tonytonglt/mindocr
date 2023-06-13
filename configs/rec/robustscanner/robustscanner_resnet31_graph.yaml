@@ -1,6 +1,6 @@
 system:
-  mode: 1 # 0 for graph mode, 1 for pynative mode in MindSpore
-  distribute: True
+  mode: 0 # 0 for graph mode, 1 for pynative mode in MindSpore
+  distribute: False
   amp_level: 'O0'
   seed: 42
   log_interval: 100

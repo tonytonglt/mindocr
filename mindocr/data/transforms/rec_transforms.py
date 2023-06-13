@@ -421,11 +421,17 @@ class RobustScannerRecResizeImg(object):
         img = data['image']
         norm_img, resize_shape, pad_shape, valid_ratio = resize_norm_img_sar(
             img, self.image_shape, self.width_downsample_ratio)
+        valid_ratio = np.array(valid_ratio, dtype=np.float32)
+        width_downsampled = int(self.image_shape[-1] * self.width_downsample_ratio)
+        valid_width_mask = np.full([1, width_downsampled], 1)
+        valid_width = min(width_downsampled, int(width_downsampled * valid_ratio + 0.5))
+        valid_width_mask[:, valid_width:] = 0
         word_positons = np.array(range(0, self.max_text_len)).astype('int64')
         data['image'] = norm_img
         data['resized_shape'] = resize_shape
         data['pad_shape'] = pad_shape
         data['valid_ratio'] = valid_ratio
+        data['valid_width_mask'] = valid_width_mask
         data['word_positions'] = word_positons
         return data
 

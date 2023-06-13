@@ -19,14 +19,14 @@ class BaseDecoder(nn.Cell):
                   feat,
                   out_enc,
                   label=None,
-                  valid_ratios=None,
+                  valid_width_masks=None,
                   word_positions=None,
                   train_mode=True):
         # self.train_mode = train_mode
 
         if train_mode:
-            return self.forward_train(feat, out_enc, label, valid_ratios, word_positions)
-        return self.forward_test(feat, out_enc, valid_ratios, word_positions)
+            return self.forward_train(feat, out_enc, label, valid_width_masks, word_positions)
+        return self.forward_test(feat, out_enc, valid_width_masks, word_positions)
 
 
 class ChannelReductionEncoder(nn.Cell):
@@ -69,7 +69,7 @@ class DotProductAttentionLayer(nn.Cell):
         self.batchmatmul = ops.BatchMatMul()
         self.softmax = ops.Softmax(axis=2)
 
-    def construct(self, query, key, value, h, w, valid_ratios=None):
+    def construct(self, query, key, value, h, w, valid_width_masks=None):
         query = self.transpose(query, (0, 2, 1))
         # logits = self.matmul(query, key) * self.scale
         logits = self.batchmatmul(query, key) * self.scale
@@ -77,15 +77,24 @@ class DotProductAttentionLayer(nn.Cell):
         n, c, t = logits.shape
         # reshape to (n, c, h, w)
         logits = logits.view((n, c, h, w))
-        if valid_ratios is not None:
-            # cal mask of attention weight
-            # print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', valid_ratios)
-            # print(type(valid_ratios))
-            valid_ratios = valid_ratios.asnumpy()
-            for i, valid_ratio in enumerate(valid_ratios):
-                valid_width = min(w, int(w * valid_ratio + 0.5))
-                if valid_width < w:
-                    logits[i, :, :, valid_width:] = float('-inf')
+        # print(h, w)  # 6, 40
+        if valid_width_masks is not None:
+            # valid_width_masks = ops.cast(valid_width_masks, ms.float32)
+            for i, valid_width_mask in enumerate(valid_width_masks):
+                logits_i = logits[i]  # (c, h, w)
+                logits_i = logits_i.view((-1, w))  # (c*h, w)
+                # print(logits_i.shape)
+                ch = c * h
+                valid_width_mask = valid_width_mask.repeat(ch, axis=0)  # (c*h, w)
+                # print(valid_width_mask.shape)
+                # print(valid_width_mask.dtype)
+                valid_width_mask = ops.cast(valid_width_mask, ms.bool_)
+                # print(valid_width_mask.dtype)
+                logits_i = ops.select(valid_width_mask, logits_i, float('-inf'))  # (c*h, w)
+                logits[i] = logits_i.view((c, h, w))  # (c, h, w)
+                # valid_width = ops.minimum(w, ops.floor(w * valid_width_mask + 0.5))
+                # if valid_width < w:
+                # logits[i, :, :, valid_width:] = ms.Tensor(float('-inf'), ms.float32)
 
 
         # reshape to (n, c, h, w)
@@ -115,7 +124,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         max_seq_len (int): Maximum output sequence length :math:`T`.
         start_idx (int): The index of `<SOS>`.
         mask (bool): Whether to mask input features according to
-            ``img_meta['valid_ratio']``.
+            ``img_meta['valid_width_mask']``.
         padding_idx (int): The index of `<PAD>`.
         dropout (float): Dropout rate.
         return_feature (bool): Return feature or logits as the result.
@@ -173,7 +182,7 @@ class SequenceAttentionDecoder(BaseDecoder):
             self.prediction = nn.Dense(
                 dim_model if encode_value else dim_input, pred_num_classes)
 
-    def forward_train(self, feat, out_enc, targets, valid_ratios):
+    def forward_train(self, feat, out_enc, targets, valid_width_masks):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
@@ -181,7 +190,7 @@ class SequenceAttentionDecoder(BaseDecoder):
                 :math:`(N, D_m, H, W)`.
             targets (Tensor): a tensor of shape :math:`(N, T)`. Each element is the index of a
                 character.
-            valid_ratios (Tensor): valid length ratio of img.
+            valid_width_masks (Tensor): valid length ratio of img.
         Returns:
             Tensor: A raw logit tensor of shape :math:`(N, T, C-1)` if
             ``return_feature=False``. Otherwise it would be the hidden feature
@@ -207,7 +216,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         else:
             value = feat.view((n, c_feat, h * w))
 
-        attn_out = self.attention_layer(query, key, value, h, w, valid_ratios)
+        attn_out = self.attention_layer(query, key, value, h, w, valid_width_masks)
         attn_out = self.transpose(attn_out, (0, 2, 1))
 
         if self.return_feature:
@@ -217,13 +226,13 @@ class SequenceAttentionDecoder(BaseDecoder):
 
         return out
 
-    def forward_test(self, feat, out_enc, valid_ratios):
+    def forward_test(self, feat, out_enc, valid_width_masks):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
             out_enc (Tensor): Encoder output of shape
                 :math:`(N, D_m, H, W)`.
-            valid_ratios (Tensor): valid length ratio of img.
+            valid_width_masks (Tensor): valid length ratio of img.
 
         Returns:
             Tensor: The output logit sequence tensor of shape
@@ -239,7 +248,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         outputs = []
         for i in range(seq_len):
             step_out = self.forward_test_step(feat, out_enc, decode_sequence,
-                                              i, valid_ratios)
+                                              i, valid_width_masks)
             outputs.append(step_out)
             max_idx, _ = self.argmax(step_out)
             if i < seq_len - 1:
@@ -250,7 +259,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         return outputs
 
     def forward_test_step(self, feat, out_enc, decode_sequence, current_step,
-                          valid_ratios):
+                          valid_width_masks):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
@@ -259,7 +268,7 @@ class SequenceAttentionDecoder(BaseDecoder):
             decode_sequence (Tensor): Shape :math:`(N, T)`. The tensor that
                 stores history decoding result.
             current_step (int): Current decoding step.
-            valid_ratios (Tensor): valid length ratio of img
+            valid_width_masks (Tensor): valid length ratio of img
 
         Returns:
             Tensor: Shape :math:`(N, C-1)`. The logit tensor of predicted
@@ -283,7 +292,7 @@ class SequenceAttentionDecoder(BaseDecoder):
         else:
             value = feat.view((n, c_feat, h * w))
 
-        attn_out = self.attention_layer(query, key, value, h, w, valid_ratios)
+        attn_out = self.attention_layer(query, key, value, h, w, valid_width_masks)
         out = attn_out[:, :, current_step]
 
         if self.return_feature:
@@ -345,7 +354,7 @@ class PositionAttentionDecoder(BaseDecoder):
             same as encoder output vector ``out_enc``.
         max_seq_len (int): Maximum output sequence length :math:`T`.
         mask (bool): Whether to mask input features according to
-            ``img_meta['valid_ratio']``.
+            ``img_meta['valid_width_mask']``.
         return_feature (bool): Return feature or logits as the result.
         encode_value (bool): Whether to use the output of encoder ``out_enc``
             as `value` of attention layer. If False, the original feature
@@ -403,7 +412,7 @@ class PositionAttentionDecoder(BaseDecoder):
         batch_position_index = self.stack(position_index_list)
         return batch_position_index
 
-    def forward_train(self, feat, out_enc, targets, valid_ratios, position_index):
+    def forward_train(self, feat, out_enc, targets, valid_width_masks, position_index):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
@@ -412,7 +421,7 @@ class PositionAttentionDecoder(BaseDecoder):
             targets (dict): A dict with the key ``padded_targets``, a
                 tensor of shape :math:`(N, T)`. Each element is the index of a
                 character.
-            valid_ratios (Tensor): valid length ratio of img.
+            valid_width_masks (Tensor): valid length ratio of img.
             position_index (Tensor): The position of each word.
 
         Returns:
@@ -441,7 +450,7 @@ class PositionAttentionDecoder(BaseDecoder):
         else:
             value = feat.view((n, c_feat, h * w))
 
-        attn_out = self.attention_layer(query, key, value, h, w, valid_ratios)
+        attn_out = self.attention_layer(query, key, value, h, w, valid_width_masks)
         attn_out = self.transpose(attn_out, (0, 2, 1))  # [n, len_q, dim_v]
 
         if self.return_feature:
@@ -449,13 +458,13 @@ class PositionAttentionDecoder(BaseDecoder):
 
         return self.prediction(attn_out)
 
-    def forward_test(self, feat, out_enc, valid_ratios, position_index):
+    def forward_test(self, feat, out_enc, valid_width_masks, position_index):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
             out_enc (Tensor): Encoder output of shape
                 :math:`(N, D_m, H, W)`.
-            valid_ratios (Tensor): valid length ratio of img
+            valid_width_masks (Tensor): valid length ratio of img
             position_index (Tensor): The position of each word.
 
         Returns:
@@ -484,16 +493,16 @@ class PositionAttentionDecoder(BaseDecoder):
             value = feat.view((n, c_feat, h * w))
         # len_q = query.shape[2]
         # mask = None
-        # if valid_ratios is not None:
+        # if valid_width_masks is not None:
         #     mask = paddle.zeros(shape=[n, len_q, h, w], dtype='bool')
-        #     for i, valid_ratio in enumerate(valid_ratios):
-        #         valid_width = min(w, math.ceil(w * valid_ratio))
+        #     for i, valid_width_mask in enumerate(valid_width_masks):
+        #         valid_width = min(w, math.ceil(w * valid_width_mask))
         #         if valid_width < w:
         #             mask[i, :, :, valid_width:] = True
         #     # mask = mask.view(n, h * w)
         #     mask = paddle.reshape(mask, (n, len_q, h * w))
 
-        attn_out = self.attention_layer(query, key, value, h, w, valid_ratios)
+        attn_out = self.attention_layer(query, key, value, h, w, valid_width_masks)
         attn_out = self.transpose(attn_out, (0, 2, 1))  # [n, len_q, dim_v]
 
         if self.return_feature:
@@ -542,7 +551,7 @@ class RobustScannerDecoder(BaseDecoder):
         max_seq_len (int): Maximum output sequence length :math:`T`.
         start_idx (int): The index of `<SOS>`.
         mask (bool): Whether to mask input features according to
-            ``img_meta['valid_ratio']``.
+            ``img_meta['valid_width_mask']``.
         padding_idx (int): The index of `<PAD>`.
         encode_value (bool): Whether to use the output of encoder ``out_enc``
             as `value` of attention layer. If False, the original feature
@@ -616,7 +625,7 @@ class RobustScannerDecoder(BaseDecoder):
         self.prediction = nn.Dense(dim_model if encode_value else dim_input,
                                    pred_num_classes)
 
-    def forward_train(self, feat, out_enc, target, valid_ratios, word_positions):
+    def forward_train(self, feat, out_enc, target, valid_width_masks, word_positions):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
@@ -625,16 +634,16 @@ class RobustScannerDecoder(BaseDecoder):
             target (dict): A dict with the key ``padded_targets``, a
                 tensor of shape :math:`(N, T)`. Each element is the index of a
                 character.
-            valid_ratios (Tensor):
+            valid_width_masks (Tensor):
             word_positions (Tensor): The position of each word.
 
         Returns:
             Tensor: A raw logit tensor of shape :math:`(N, T, C-1)`.
         """
         hybrid_glimpse = self.hybrid_decoder.forward_train(
-            feat, out_enc, target, valid_ratios)
+            feat, out_enc, target, valid_width_masks)
         position_glimpse = self.position_decoder.forward_train(
-            feat, out_enc, target, valid_ratios, word_positions)
+            feat, out_enc, target, valid_width_masks, word_positions)
 
         fusion_out = self.fusion_module(hybrid_glimpse, position_glimpse)
 
@@ -642,13 +651,13 @@ class RobustScannerDecoder(BaseDecoder):
 
         return out
 
-    def forward_test(self, feat, out_enc, valid_ratios, word_positions):
+    def forward_test(self, feat, out_enc, valid_width_masks, word_positions):
         """
         Args:
             feat (Tensor): Tensor of shape :math:`(N, D_i, H, W)`.
             out_enc (Tensor): Encoder output of shape
                 :math:`(N, D_m, H, W)`.
-            valid_ratios (Tensor):
+            valid_width_masks (Tensor):
             word_positions (Tensor): The position of each word.
         Returns:
             Tensor: The output logit sequence tensor of shape
@@ -663,12 +672,12 @@ class RobustScannerDecoder(BaseDecoder):
         decode_sequence = (self.ones((batch_size, seq_len), mstype.int64) * self.start_idx)
 
         position_glimpse = self.position_decoder.forward_test(
-            feat, out_enc, valid_ratios, word_positions)
+            feat, out_enc, valid_width_masks, word_positions)
 
         outputs = []
         for i in range(seq_len):
             hybrid_glimpse_step = self.hybrid_decoder.forward_test_step(
-                feat, out_enc, decode_sequence, i, valid_ratios)
+                feat, out_enc, decode_sequence, i, valid_width_masks)
 
             fusion_out = self.fusion_module(hybrid_glimpse_step,
                                             position_glimpse[:, i, :])
@@ -727,29 +736,29 @@ class RobustScannerHead(nn.Cell):
 
     def construct(self, inputs, targets):
         '''
-        img_metas: [label, valid_ratio, word_positions]
+        targets: [label, valid_width_mask, word_positions]
         '''
         # print(type(inputs))
         # print("!!!!!!!!!!!!!!!!!!!!!", inputs.shape)
         out_enc = self.encoder(inputs)  # bsz c
         # others = targets[-2:]
-        valid_ratios = None
+        valid_width_masks = None
         word_positions = targets[-1]
 
         if len(targets) > 1:
-            valid_ratios = targets[-2]
+            valid_width_masks = targets[-2]
 
         if self.training:
             label = targets[0]  # label
-            label = Tensor(label, dtype=mstype.int64)
+            # label = Tensor(label, dtype=mstype.int64)
             final_out = self.decoder(
-                inputs, out_enc, label, valid_ratios, word_positions)
+                inputs, out_enc, label, valid_width_masks, word_positions)
         else:
             final_out = self.decoder(
                 inputs,
                 out_enc,
                 label=None,
-                valid_ratios=valid_ratios,
+                valid_width_masks=valid_width_masks,
                 word_positions=word_positions,
                 train_mode=False)
             # (bsz, seq_len, num_classes)
