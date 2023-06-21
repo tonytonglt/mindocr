@@ -169,7 +169,11 @@ class LMDBDataset(BaseDataset):
         
         # perform transformation on data
         data = run_transforms(data, transforms=self.transforms)
-            
+        if data is None:
+            print('data is None.')
+            random_idx = np.random.randint(self.__len__())
+            return self.__getitem__(random_idx)
+
         output_tuple = tuple(data[k] for k in self.output_columns) 
 
         return output_tuple

@@ -269,14 +269,14 @@ class EvalSaveCallback(Callback):
         cb_params = run_context.original_args()
         cur_epoch = cb_params.cur_epoch_num
         train_time = (time.time() - self.epoch_start_time)
-        train_loss = ms.ops.stack(self._losses).mean().asnumpy()
+        # train_loss = ms.ops.stack(self._losses).mean().asnumpy()
 
         epoch_time = (time.time() - self.epoch_start_time)
         per_step_time = epoch_time * 1000 / cb_params.batch_num
         fps = 1000 * self.batch_size / per_step_time
-        msg = f"epoch: [{cur_epoch}/{cb_params.epoch_num}], loss: {train_loss:.6f}, " \
-              f"epoch time: {epoch_time:.3f} s, per step time: {per_step_time:.3f} ms, fps: {fps:.2f} img/s"
-        self.logger(msg)
+        # msg = f"epoch: [{cur_epoch}/{cb_params.epoch_num}], loss: {train_loss:.6f}, " \
+        #       f"epoch time: {epoch_time:.3f} s, per step time: {per_step_time:.3f} ms, fps: {fps:.2f} img/s"
+        # self.logger(msg)
 
         eval_done = False
         if self.loader_eval is not None:
@@ -319,11 +319,11 @@ class EvalSaveCallback(Callback):
                     perf_columns = ['loss', 'train_time']
                 self.rec = PerfRecorder(self.ckpt_save_dir, metric_names=perf_columns)  # record column names
 
-            if self.loader_eval is not None:
-                epoch_perf_values = [cur_epoch, train_loss] + list(measures.values()) + [train_time, eval_time]
-            else:
-                epoch_perf_values = [cur_epoch, train_loss, train_time]
-            self.rec.add(*epoch_perf_values)  # record column values
+            # if self.loader_eval is not None:
+            #     epoch_perf_values = [cur_epoch, train_loss] + list(measures.values()) + [train_time, eval_time]
+            # else:
+            #     epoch_perf_values = [cur_epoch, train_loss, train_time]
+            # self.rec.add(*epoch_perf_values)  # record column values
 
         # swap back network weight and ema weight. MUST execute after model saving and before next-step training
         if (self.ema is not None) and eval_done:

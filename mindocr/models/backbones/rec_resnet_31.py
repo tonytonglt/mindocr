@@ -71,7 +71,8 @@ class ResNet31(nn.Cell):
                  in_channels=3,
                  layers=[1, 2, 5, 3],
                  channels=[64, 128, 256, 256, 512, 512, 512],
-                 last_stage_pool=False):
+                 last_stage_pool=False,
+                 **kwargs):
         super(ResNet31, self).__init__()
         assert isinstance(in_channels, int)
         assert isinstance(last_stage_pool, bool)

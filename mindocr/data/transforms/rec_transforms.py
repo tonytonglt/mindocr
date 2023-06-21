@@ -390,17 +390,20 @@ class SARLabelEncode(object):
 
     def __call__(self, data):
         text = data['label']
+        text_str = text
         text = self.encode(text)
         if text is None:
             return None
         if len(text) >= self.max_text_len - 1:
             return None
-        data['length'] = np.array(len(text))
+        data['text_length'] = np.array(len(text))
         target = [self.start_idx] + text + [self.end_idx]
         padded_text = [self.padding_idx for _ in range(self.max_text_len)]
 
         padded_text[:len(target)] = target
         data['label'] = np.array(padded_text)
+        data['text_padded'] = text_str + ' ' * (self.max_text_len - len(text_str))
+
         return data
 
     def get_ignored_tokens(self):

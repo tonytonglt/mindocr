@@ -1,6 +1,6 @@
 system:
   mode: 0 # 0 for graph mode, 1 for pynative mode in MindSpore
-  distribute: True
+  distribute: False
   amp_level: 'O0'
   seed: 42
   log_interval: 100
@@ -8,7 +8,7 @@ system:
   drop_overflow_update: False
 
 common:
-  character_dict_path: &character_dict_path  # mindocr/utils/dict/en_dict.txt
+  character_dict_path: &character_dict_path /home/tongli/workspace/mindocr_robustscanner_dev_new/mindocr/utils/dict/en_dict.txt
   num_classes: &num_classes 37 # num_chars_in_dict+1,  TODO: retreive it from dict or check correctness
   max_text_len: &max_text_len 40
   infer_mode: &infer_mode False
@@ -38,7 +38,7 @@ model:
 #    pretrained: False
   head:
     name: RobustScannerHead
-    out_channels: 39  # 90 + unknown + start + padding ? 100
+    out_channels: 39  # 94 + unknown + start + padding ? 100
 #    in_channels: 512
     enc_outchannles: 128
     hybrid_dec_rnn_layers: 2
@@ -64,19 +64,17 @@ loss:
   name: SARLoss
 
 scheduler:
-  scheduler: warmup_cosine_decay
-  min_lr: 0.0
-  lr: 0.0005
-  num_epochs: 30
-  warmup_epochs: 1
-  decay_epochs: 29
+  scheduler: multi_step_decay
+  milestones: [3, 4]
+  decay_rate: 0.1
+  lr: 0.001
+  num_epochs: 5
+  warmup_epochs: 0
 
 optimizer:
-  opt: adamw
-  filter_bias_and_bn: True
-  momentum: 0.95
-  weight_decay: 0.0001
-  nesterov: False
+  opt: adamW
+  beta1: 0.9
+  beta2: 0.999
   #use_nesterov: True
 
 loss_scaler:
@@ -123,7 +121,7 @@ train:
       num_workers: 8
 
 eval:
-  ckpt_load_path: './robustscanner_exp/robustscanner_8p_O0_graph_try6/best.ckpt'
+  ckpt_load_path: '/home/tongli/workspace/mindocr_robustscanner_dev_new/robustscanner_exp/robustscanner_8p_O0_graph_try6/best.ckpt'
   dataset_sink_mode: False
   dataset:
     type: LMDBDataset
@@ -136,13 +134,15 @@ eval:
       - DecodeImage:
           img_mode: BGR
           to_float32: False
-#      - SARLabelEncode: # Class handling label
-#        - max_text_len: *max_text_len
-      - RecCTCLabelEncode:
+      - SARLabelEncode: # Class handling label
           max_text_len: *max_text_len
           character_dict_path: *character_dict_path
           use_space_char: *use_space_char
-          lower: True
+#      - RecCTCLabelEncode:
+#          max_text_len: *max_text_len
+#          character_dict_path: *character_dict_path
+#          use_space_char: *use_space_char
+#          lower: True
       - RobustScannerRecResizeImg:
           image_shape: [ 3, 48, 48, 160 ]
           width_downsample_ratio: 0.25
@@ -154,13 +154,13 @@ eval:
 #          std : [127.0, 127.0, 127.0]
 #      - ToCHWImage:
     #  the order of the dataloader list, matching the network input and the input labels for the loss function, and optional data for debug/visaulize
-    output_columns: [ 'image', 'text_seq', 'valid_width_mask', 'word_positions', 'text_padded', 'text_length' ]
+    output_columns: [ 'image', 'label', 'valid_width_mask', 'word_positions', 'text_padded', 'text_length' ]
     net_input_column_index: [ 0, 1, 2, 3 ] # input indices for network forward func in output_columns
     label_column_index: [4, 5]
 
   loader:
       shuffle: False # TODO: tbc
-      batch_size: 64
+      batch_size: 1
       drop_remainder: True
       max_rowsize: 12
       num_workers: 8

@@ -339,13 +339,11 @@ class SARLabelDecode(object):
         preds_prob = preds.max(axis=2)
 
         text = self.decode(preds_idx, preds_prob, is_remove_duplicate=False)
-        print('text', text)
-        print(label)
+        # print('preds_idx', preds_idx)
+        # print('text', text)
         if label is None:
             return {'texts': text}
         label = self.decode(label, is_remove_duplicate=False)
-        print(text)
-        print(label)
         pred = {'texts': text, 'labels': label}
         return pred
 
