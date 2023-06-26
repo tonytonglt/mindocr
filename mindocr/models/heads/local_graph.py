@@ -1,7 +1,7 @@
 import numpy as np
 import mindspore as ms
 from mindspore import ops
-
+from mindocr.ext_op import RoiAlignRotatedLayer
 
 def normalize_adjacent_matrix(A):
     assert A.ndim == 2
@@ -117,7 +117,8 @@ class LocalGraphs:
         self.num_adjacent_linkages = num_adjacent_linkages
         self.node_geo_feat_dim = node_geo_feat_len
         pooled_height, pooled_width = pooling_output_size
-        self.pooling = ops.ROIAlign(pooled_height, pooled_width, pooling_scale)
+        # self.pooling = ops.ROIAlign(pooled_height, pooled_width, pooling_scale)
+        self.pooling = RoiAlignRotatedLayer(pooled_height, pooled_width, pooling_scale)
         self.local_graph_thr = local_graph_thr
 
     def generate_local_graphs(self, sorted_dist_inds, gt_comp_labels):

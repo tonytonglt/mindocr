@@ -4,7 +4,7 @@ import mindspore as ms
 from mindspore import ops
 from lanms import merge_quadrangle_n9 as la_nms
 from .local_graph import euclidean_distance_matrix, feature_embedding, normalize_adjacent_matrix
-
+from mindocr.ext_op import RoiAlignRotatedLayer
 def fill_hole(input_mask):
     h, w = input_mask.shape
     canvas = np.zeros((h + 2, w + 2), np.uint8)
@@ -45,7 +45,8 @@ class ProposalLocalGraphs:
         self.local_graph_depth = len(self.k_at_hops)
         self.node_geo_feat_dim = node_geo_feat_len
         pooled_height, pooled_width = pooling_output_size
-        self.pooling = ops.ROIAlign(pooled_height, pooled_width, pooling_scale)
+        # self.pooling = ops.ROIAlign(pooled_height, pooled_width, pooling_scale)
+        self.pooling = RoiAlignRotatedLayer(pooled_height, pooled_width, pooling_scale)
         self.nms_thr = nms_thr
         self.min_width = min_width
         self.max_width = max_width
