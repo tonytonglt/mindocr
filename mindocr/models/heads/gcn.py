@@ -2,12 +2,13 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-
 import mindspore
 from mindspore import nn, ops, Parameter, Tensor
 from mindspore.common.initializer import XavierUniform, Constant, initializer
 
 import numpy as np
+from .local_graph import LocalGraphs
+
 
 class MeanAggregator(nn.Cell):
     def __init__(self):
@@ -15,7 +16,7 @@ class MeanAggregator(nn.Cell):
 
     def construct(self, features, A):
         batmatmul = ops.BatchMatMul()
-        x=batmatmul(A, features)
+        x = batmatmul(A, features)
         return x
 
 
@@ -24,7 +25,8 @@ class GraphConv(nn.Cell):
         super(GraphConv, self).__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
-        self.weight = Parameter(mindspore.Tensor(shape=(in_dim * 2, out_dim), dtype=mindspore.float32, init=XavierUniform()))
+        self.weight = Parameter(
+            mindspore.Tensor(shape=(in_dim * 2, out_dim), dtype=mindspore.float32, init=XavierUniform()))
         self.bias = Parameter(mindspore.Tensor(shape=[out_dim], dtype=mindspore.float32, init=Constant(value=0)))
         self.agg = agg()
 
@@ -37,7 +39,7 @@ class GraphConv(nn.Cell):
         # out = einsum((cat_feats, self.weight))
         # out = ops.einsum("bnd,df->bnf", cat_feats, self.weight)
         # out = ops.einsum("ijk,kl->ijl", cat_feats, self.weight)
-        out = Tensor(np.einsum("bnd,df->bnf", cat_feats.asnumpy(), self.weight.asnumpy()))  #TODO: use ops.einsum
+        out = Tensor(np.einsum("bnd,df->bnf", cat_feats.asnumpy(), self.weight.asnumpy()))  # TODO: use ops.einsum
         out = nn.ReLU()(out + self.bias)
         return out
 
@@ -71,7 +73,7 @@ class GCN(nn.Cell):
         k1 = one_hop_idcs.shape[-1]
         dout = x.shape[-1]
         zeros = ops.Zeros()
-        edge_feat = zeros((B, k1, dout),mindspore.float32)
+        edge_feat = zeros((B, k1, dout), mindspore.float32)
         for b in range(B):
             edge_feat[b, :, :] = x[b, one_hop_idcs[b]]
         edge_feat = edge_feat.view(-1, dout)
@@ -79,3 +81,29 @@ class GCN(nn.Cell):
 
         # shape: (B*k1)x2
         return pred
+
+
+class GNN(nn.Cell):
+    def __init__(self,
+                 k_at_hops,
+                 num_adjacent_linkages,
+                 node_geo_feat_len,
+                 pooling_scale,
+                 pooling_output_size,
+                 local_graph_thr,
+                 feat_len):
+        self.gcn = GCN(feat_len)
+        self.graph_train = LocalGraphs(
+            k_at_hops,
+            num_adjacent_linkages,
+            node_geo_feat_len,
+            pooling_scale,
+            pooling_output_size,
+            local_graph_thr)
+
+    def construct(self, feat_maps, comp_attribs):
+        node_feats, adjacent_matrices, knn_inds, gt_labels = self.graph_train(
+            feat_maps, comp_attribs)
+        gcn_pred = self.gcn(node_feats, adjacent_matrices, knn_inds)
+
+        return (gcn_pred, gt_labels)

@@ -2,7 +2,7 @@ import numpy as np
 import mindspore as ms
 from mindspore import ops
 from mindocr.ext_op import RoiAlignRotatedLayer
-
+from mindspore import nn
 def normalize_adjacent_matrix(A):
     assert A.ndim == 2
     assert A.shape[0] == A.shape[1]
@@ -101,7 +101,7 @@ def feature_embedding(input_feats, out_feat_len):
     return embedded_feats
 
 
-class LocalGraphs:
+class LocalGraphs(nn.Cell):
     def __init__(self, k_at_hops, num_adjacent_linkages, node_geo_feat_len,
                  pooling_scale, pooling_output_size, local_graph_thr):
 
