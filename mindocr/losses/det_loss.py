@@ -468,17 +468,18 @@ class DRRGLoss(nn.LossBase):
 
         return results
 
-    def construct(self, preds, labels):
+    def construct(self, preds, gt_text_mask, gt_center_region_mask, gt_mask, gt_top_height_map, gt_bot_height_map, gt_sin_map, gt_cos_map, gt_comp_attribs):
         """Compute Drrg loss.
         """
 
-        assert isinstance(preds, tuple)
-        gt_text_mask, gt_center_region_mask, gt_mask, gt_top_height_map, gt_bot_height_map, gt_sin_map, gt_cos_map = labels[
-                                                                                                                     1:8]
+        # assert isinstance(preds, tuple)
+        # gt_text_mask, gt_center_region_mask, gt_mask, gt_top_height_map, gt_bot_height_map, gt_sin_map, gt_cos_map = labels[
+        #                                                                                                              1:8]
 
         downsample_ratio = self.downsample_ratio
 
-        pred_maps, gcn_data = preds
+        # pred_maps, gcn_data = preds
+        pred_maps = preds
         pred_text_region = pred_maps[:, 0, :, :]
         pred_center_region = pred_maps[:, 1, :, :]
         pred_sin_map = pred_maps[:, 2, :, :]
@@ -565,16 +566,25 @@ class DRRGLoss(nn.LossBase):
             loss_sin = ms.Tensor(0.0)
             loss_cos = ms.Tensor(0.0)
 
-        loss_gcn = self.gcn_loss(gcn_data)
+        # loss_gcn = self.gcn_loss(gcn_data)
 
-        loss = loss_text + loss_center + loss_height + loss_sin + loss_cos + loss_gcn
-        results = dict(
-            loss=loss,
-            loss_text=loss_text,
-            loss_center=loss_center,
-            loss_height=loss_height,
-            loss_sin=loss_sin,
-            loss_cos=loss_cos,
-            loss_gcn=loss_gcn)
+        # loss = loss_text + loss_center + loss_height + loss_sin + loss_cos + loss_gcn
+        loss = loss_text + loss_center + loss_height + loss_sin + loss_cos
+        print(loss)
+        print(loss_text)
+        print(loss_center)
+        print(loss_height)
+        print(loss_sin)
+        print(loss_cos)
+        # print(loss_gcn)
+        # results = dict(
+        #     loss=loss,
+        #     loss_text=loss_text,
+        #     loss_center=loss_center,
+        #     loss_height=loss_height,
+        #     loss_sin=loss_sin,
+        #     loss_cos=loss_cos,
+        #     loss_gcn=loss_gcn)
+        # results = (loss, loss_text, loss_center, loss_height, loss_sin, loss_cos, loss_gcn)
 
-        return results
+        return loss

@@ -92,16 +92,16 @@ class DRRGHead(nn.Cell):
             stride=1,
             padding=0)
 
-        self.graph_train = LocalGraphs(
-            self.k_at_hops, self.num_adjacent_linkages, self.node_geo_feat_len,
-            self.pooling_scale, self.pooling_output_size, self.local_graph_thr)
-
-        self.graph_test = ProposalLocalGraphs(
-            self.k_at_hops, self.num_adjacent_linkages, self.node_geo_feat_len,
-            self.pooling_scale, self.pooling_output_size, self.nms_thr,
-            self.min_width, self.max_width, self.comp_shrink_ratio,
-            self.comp_ratio, self.comp_score_thr, self.text_region_thr,
-            self.center_region_thr, self.center_region_area_thr)
+        # self.graph_train = LocalGraphs(
+        #     self.k_at_hops, self.num_adjacent_linkages, self.node_geo_feat_len,
+        #     self.pooling_scale, self.pooling_output_size, self.local_graph_thr)
+        #
+        # self.graph_test = ProposalLocalGraphs(
+        #     self.k_at_hops, self.num_adjacent_linkages, self.node_geo_feat_len,
+        #     self.pooling_scale, self.pooling_output_size, self.nms_thr,
+        #     self.min_width, self.max_width, self.comp_shrink_ratio,
+        #     self.comp_ratio, self.comp_score_thr, self.text_region_thr,
+        #     self.center_region_thr, self.center_region_area_thr)
 
         pool_w, pool_h = self.pooling_output_size
         node_feat_len = (pool_w * pool_h) * (
@@ -135,12 +135,13 @@ class DRRGHead(nn.Cell):
             pred_maps = self.out_conv(inputs)
             feat_maps = ops.concat((inputs, pred_maps), axis=1)
             print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', (np.stack(gt_comp_attribs)).shape)
-            node_feats, adjacent_matrices, knn_inds, gt_labels = self.graph_train(
-                feat_maps, np.stack(gt_comp_attribs))
-            print('here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            gcn_pred = self.gcn(node_feats, adjacent_matrices, knn_inds)
+            # node_feats, adjacent_matrices, knn_inds, gt_labels = self.graph_train(
+            #     feat_maps, np.stack(gt_comp_attribs))
+            # print('here!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            # gcn_pred = self.gcn(node_feats, adjacent_matrices, knn_inds)
 
-            return pred_maps, (gcn_pred, gt_labels)
+            # return pred_maps, (gcn_pred, gt_labels)
+            return pred_maps
         else:
             return self.single_test(inputs)
 

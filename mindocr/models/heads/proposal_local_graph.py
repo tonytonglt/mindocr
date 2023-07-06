@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import mindspore as ms
-from mindspore import ops
+from mindspore import ops, nn
 from lanms import merge_quadrangle_n9 as la_nms
 from .local_graph import euclidean_distance_matrix, feature_embedding, normalize_adjacent_matrix
 
@@ -18,12 +18,12 @@ def fill_hole(input_mask):
     return ~canvas | input_mask
 
 
-class ProposalLocalGraphs:
+class ProposalLocalGraphs(nn.Cell):
     def __init__(self, k_at_hops, num_adjacent_linkages, node_geo_feat_len,
                  pooling_scale, pooling_output_size, nms_thr, min_width,
                  max_width, comp_shrink_ratio, comp_w_h_ratio, comp_score_thr,
                  text_region_thr, center_region_thr, center_region_area_thr):
-
+        super(ProposalLocalGraphs, self).__init__()
         assert len(k_at_hops) == 2
         assert isinstance(k_at_hops, tuple)
         assert isinstance(num_adjacent_linkages, int)
@@ -321,7 +321,7 @@ class ProposalLocalGraphs:
         return (local_graphs_node_feat, adjacent_matrices, pivots_knn_inds,
                 pivots_local_graphs)
 
-    def __call__(self, preds, feat_maps):
+    def construct(self, preds, feat_maps):
         """Generate local graphs and graph convolutional network input data.
 
         Args:

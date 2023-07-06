@@ -1,6 +1,6 @@
 import numpy as np
 import mindspore as ms
-from mindspore import ops
+from mindspore import ops, nn
 
 
 def normalize_adjacent_matrix(A):
@@ -101,10 +101,10 @@ def feature_embedding(input_feats, out_feat_len):
     return embedded_feats
 
 
-class LocalGraphs:
+class LocalGraphs(nn.Cell):
     def __init__(self, k_at_hops, num_adjacent_linkages, node_geo_feat_len,
                  pooling_scale, pooling_output_size, local_graph_thr):
-
+        super(LocalGraphs, self).__init__()
         assert len(k_at_hops) == 2
         assert all(isinstance(n, int) for n in k_at_hops)
         assert isinstance(num_adjacent_linkages, int)
@@ -276,7 +276,7 @@ class LocalGraphs:
                 else:
                     pad_normalized_feats = normalized_feats
                 local_graph_labels = node_labels[pivot_local_graph]
-                knn_labels = local_graph_labels[knn_inds.numpy()]
+                knn_labels = local_graph_labels[knn_inds.asnumpy()]
                 link_labels = ((node_labels[pivot_ind] == knn_labels) &
                                (node_labels[pivot_ind] > 0)).astype(np.int64)
                 link_labels = ms.Tensor(link_labels)
@@ -294,7 +294,7 @@ class LocalGraphs:
         return (local_graphs_node_feat, adjacent_matrices, pivots_knn_inds,
                 pivots_gt_linkage)
 
-    def __call__(self, feat_maps, comp_attribs):
+    def construct(self, feat_maps, comp_attribs):
         """Generate local graphs as GCN input.
 
         Args:

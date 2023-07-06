@@ -37,7 +37,8 @@ class GraphConv(nn.Cell):
         # out = einsum((cat_feats, self.weight))
         # out = ops.einsum("bnd,df->bnf", cat_feats, self.weight)
         # out = ops.einsum("ijk,kl->ijl", cat_feats, self.weight)
-        out = Tensor(np.einsum("bnd,df->bnf", cat_feats.asnumpy(), self.weight.asnumpy()))  #TODO: use ops.einsum
+        # out = Tensor(np.einsum("bnd,df->bnf", cat_feats.asnumpy(), self.weight.asnumpy()))  #TODO: use ops.einsum
+        out = ops.matmul(cat_feats, self.weight)
         out = nn.ReLU()(out + self.bias)
         return out
 
