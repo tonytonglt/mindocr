@@ -1,6 +1,7 @@
 """
 Model training
 """
+import skimage
 import sys
 import os
 import shutil
@@ -37,7 +38,10 @@ from mindocr.utils.ema import EMA
 
 def main(cfg):
     # init env
-    ms.set_context(mode=cfg.system.mode, device_id=6, device_target='CPU')
+    ms.set_context(mode=cfg.system.mode, device_target='CPU')
+    # ms.set_context(mode=cfg.system.mode, device_id=6, device_target='Ascend')
+    # ms.set_context(mode=cfg.system.mode, device_id=6, device_target='Ascend', save_graphs=True,
+    #                save_graphs_path='/home/hezhiyu/tongli/mindocr_drrg_dev_new_13/ir_graphs/')
     if cfg.system.distribute:
         init()
         device_num = get_group_size()

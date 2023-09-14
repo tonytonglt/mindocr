@@ -185,7 +185,8 @@ class LocalGraphs(nn.Cell):
                 if add_flag:
                     pivot_local_graphs.append(pivot_local_graph)
                     pivot_knns.append(pivot_knn)
-
+        print('pivot_local_graphs:', len(pivot_local_graphs))
+        print('pivot_knns', len(pivot_knns))
         return pivot_local_graphs, pivot_knns
 
     def generate_gcn_input(self, node_feat_batch, node_label_batch,
@@ -322,6 +323,7 @@ class LocalGraphs(nn.Cell):
         node_label_batch = []
 
         for batch_ind in range(comp_attribs.shape[0]):
+            print('batch_ind', batch_ind)
             num_comps = int(comp_attribs[batch_ind, 0, 0])
             comp_geo_attribs = comp_attribs[batch_ind, :num_comps, 1:7]
             node_labels = comp_attribs[batch_ind, :num_comps, 7].astype(

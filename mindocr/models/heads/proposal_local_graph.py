@@ -18,7 +18,7 @@ def fill_hole(input_mask):
     return ~canvas | input_mask
 
 
-class ProposalLocalGraphs(nn.Cell):
+class ProposalLocalGraphs:
     def __init__(self, k_at_hops, num_adjacent_linkages, node_geo_feat_len,
                  pooling_scale, pooling_output_size, nms_thr, min_width,
                  max_width, comp_shrink_ratio, comp_w_h_ratio, comp_score_thr,
@@ -131,7 +131,7 @@ class ProposalLocalGraphs(nn.Cell):
             comp_attribs (ndarray): The text component attributes.
             text_comps (ndarray): The text components.
         """
-
+        print('aaa')
         assert (text_region_map.shape == center_region_map.shape ==
                 top_height_map.shape == bot_height_map.shape == sin_map.shape ==
                 cos_map.shape)
@@ -143,10 +143,11 @@ class ProposalLocalGraphs(nn.Cell):
         sin_map, cos_map = sin_map * scale, cos_map * scale
 
         center_region_mask = fill_hole(center_region_mask)
-        center_region_contours, _ = cv2.findContours(
+        print('AAA')
+        center_region_mask, center_region_contours, _ = cv2.findContours(
             center_region_mask.astype(np.uint8), cv2.RETR_TREE,
             cv2.CHAIN_APPROX_SIMPLE)
-
+        print('bbb')
         mask_sz = center_region_map.shape
         comp_list = []
         for contour in center_region_contours:
@@ -171,7 +172,7 @@ class ProposalLocalGraphs(nn.Cell):
                 continue
             if text_comps.shape[-1] > 0:
                 comp_list.append(text_comps)
-
+        print('ccc')
         if len(comp_list) <= 0:
             return None, None
 
@@ -197,6 +198,7 @@ class ProposalLocalGraphs(nn.Cell):
                                                 min_coord[0]:(max_coord[0] + 1)]
             score = cv2.mean(temp_region_patch, temp_comp_mask)[0]
             scores.append(score)
+        print('ddd')
         scores = np.array(scores).reshape((-1, 1))
         text_comps = np.hstack([text_comps[:, :-1], scores])
 
@@ -205,11 +207,11 @@ class ProposalLocalGraphs(nn.Cell):
         w = np.clip(h * self.comp_w_h_ratio, self.min_width, self.max_width)
         sin = sin_map[y, x].reshape((-1, 1))
         cos = cos_map[y, x].reshape((-1, 1))
-
+        print('eee')
         x = x.reshape((-1, 1))
         y = y.reshape((-1, 1))
         comp_attribs = np.hstack([x, y, h, w, cos, sin])
-
+        print(999)
         return comp_attribs, text_comps
 
     def generate_local_graphs(self, sorted_dist_inds, node_feats):
@@ -321,7 +323,7 @@ class ProposalLocalGraphs(nn.Cell):
         return (local_graphs_node_feat, adjacent_matrices, pivots_knn_inds,
                 pivots_local_graphs)
 
-    def construct(self, preds, feat_maps):
+    def __call__(self, preds, feat_maps):
         """Generate local graphs and graph convolutional network input data.
 
         Args:
@@ -350,11 +352,11 @@ class ProposalLocalGraphs(nn.Cell):
         pred_cos_map = preds[3].asnumpy()
         pred_top_height_map = preds[4].asnumpy()
         pred_bot_height_map = preds[5].asnumpy()
-
+        print(111)
         comp_attribs, text_comps = self.propose_comps_and_attribs(
             pred_text_region, pred_center_region, pred_top_height_map,
             pred_bot_height_map, pred_sin_map, pred_cos_map)
-
+        print(222)
         if comp_attribs is None or len(comp_attribs) < 2:
             none_flag = True
             return none_flag, (0, 0, 0, 0, 0)
@@ -371,7 +373,7 @@ class ProposalLocalGraphs(nn.Cell):
         angle = angle.reshape((-1, 1))
         rotated_rois = np.hstack([batch_id, comp_attribs[:, :-2], angle])
         rois = ms.Tensor(rotated_rois)
-
+        rois = rois[:, :5]  # TODO: change it to rotated rois
         content_feats = self.pooling(feat_maps, rois)
         content_feats = content_feats.reshape([content_feats.shape[0], -1])
         node_feats = ops.concat([content_feats, geo_feats], axis=-1)
@@ -380,7 +382,7 @@ class ProposalLocalGraphs(nn.Cell):
         (local_graphs_node_feat, adjacent_matrices, pivots_knn_inds,
          pivots_local_graphs) = self.generate_local_graphs(sorted_dist_inds,
                                                            node_feats)
-
+        print(333)
         none_flag = False
-        return none_flag, (local_graphs_node_feat, adjacent_matrices,
-                           pivots_knn_inds, pivots_local_graphs, text_comps)
+        return (none_flag, (local_graphs_node_feat, adjacent_matrices,
+                           pivots_knn_inds, pivots_local_graphs, text_comps))

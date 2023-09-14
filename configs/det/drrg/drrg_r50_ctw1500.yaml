@@ -1,7 +1,7 @@
 system:
   mode: 1 # 0 for graph mode, 1 for pynative mode in MindSpore
   distribute: False
-  amp_level: 'O0'
+  amp_level: 'O2'
   seed: 42
   log_interval: 1
   val_while_train: True
@@ -56,14 +56,14 @@ loss_scaler:
   scale_window: 1000
 
 train:
-  ckpt_save_dir: './tmp_det'
+  ckpt_save_dir: './tmp_det_npu'
   dataset_sink_mode: True
   dataset:
     type: DetDataset
-    dataset_root: /home/lihaoyang/tongli/data/ctw1500
+    dataset_root: /home/tongli/data/ctw1500/
     data_dir: train_images
     label_file: train_det_gt.txt
-    sample_ratio: 1.0
+    sample_ratio: 0.01
     transform_pipeline:
       - DecodeImage:
           img_mode: RGB
@@ -109,16 +109,16 @@ train:
 
   loader:
     shuffle: True
-    batch_size: 20
+    batch_size: 1
     drop_remainder: True
     num_workers: 1
 
 eval:
-  ckpt_load_path: tmp_det/best.ckpt
+  ckpt_load_path: tmp_det_npu/best.ckpt
   dataset_sink_mode: False
   dataset:
     type: DetDataset
-    dataset_root: /home/lihaoyang/tongli/data/ctw1500
+    dataset_root: /home/tongli/data/ctw1500/
     data_dir: test_images
     label_file: test_det_gt.txt
     sample_ratio: 1.0

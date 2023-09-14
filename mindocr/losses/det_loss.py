@@ -478,8 +478,8 @@ class DRRGLoss(nn.LossBase):
 
         downsample_ratio = self.downsample_ratio
 
-        # pred_maps, gcn_data = preds
-        pred_maps = preds
+        pred_maps, gcn_data = preds
+        # pred_maps = preds
         pred_text_region = pred_maps[:, 0, :, :]
         pred_center_region = pred_maps[:, 1, :, :]
         pred_sin_map = pred_maps[:, 2, :, :]
@@ -566,17 +566,17 @@ class DRRGLoss(nn.LossBase):
             loss_sin = ms.Tensor(0.0)
             loss_cos = ms.Tensor(0.0)
 
-        # loss_gcn = self.gcn_loss(gcn_data)
+        loss_gcn = self.gcn_loss(gcn_data)
 
-        # loss = loss_text + loss_center + loss_height + loss_sin + loss_cos + loss_gcn
-        loss = loss_text + loss_center + loss_height + loss_sin + loss_cos
-        print(loss)
-        print(loss_text)
-        print(loss_center)
-        print(loss_height)
-        print(loss_sin)
-        print(loss_cos)
-        # print(loss_gcn)
+        loss = loss_text + loss_center + loss_height + loss_sin + loss_cos + loss_gcn
+        # loss = loss_text + loss_center + loss_height + loss_sin + loss_cos
+        print('total loss', loss)
+        print('loss_text', loss_text)
+        print('loss_center', loss_center)
+        print('loss_height', loss_height)
+        print('loss_sin', loss_sin)
+        print('loss_cos', loss_cos)
+        print('loss_gcn', loss_gcn)
         # results = dict(
         #     loss=loss,
         #     loss_text=loss_text,
